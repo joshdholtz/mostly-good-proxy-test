@@ -1,0 +1,13 @@
+{
+  "name": "MGM Proxy",
+  "description": "A lightweight reverse proxy for Mostly Good Metrics that preserves client IP addresses",
+  "repository": "https://github.com/mostlygoodmetrics/mgm-proxy",
+  "keywords": ["go", "proxy", "analytics", "mgm"],
+  "stack": "container",
+  "env": {
+    "MGM_TARGET_URL": {
+      "description": "The MGM ingestion endpoint to proxy to",
+      "value": "https://ingestion.mostlygoodmetrics.com"
+    }
+  }
+}

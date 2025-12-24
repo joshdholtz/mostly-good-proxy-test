@@ -133,19 +133,31 @@ go run main.go
 
 Once deployed with your custom domain, point your SDK to it:
 
-**iOS**
+**Swift (iOS/macOS)**
 ```swift
-MGM.configure(apiKey: "your-key", endpoint: "https://analytics.yourdomain.com")
+let config = MGMConfiguration(
+    apiKey: "your-api-key",
+    baseURL: URL(string: "https://analytics.yourdomain.com")!
+)
+MostlyGoodMetrics.configure(with: config)
 ```
 
-**Android**
+**Kotlin (Android)**
 ```kotlin
-MostlyGoodMetrics.configure(context, "your-key", "https://analytics.yourdomain.com")
+val config = MGMConfiguration.Builder("your-api-key")
+    .baseUrl("https://analytics.yourdomain.com")
+    .build()
+MostlyGoodMetrics.configure(this, config)
 ```
 
-**Web**
+**JavaScript/TypeScript**
 ```javascript
-mgm.init({ apiKey: 'your-key', endpoint: 'https://analytics.yourdomain.com' });
+import { MostlyGoodMetrics } from '@mostly-good-metrics/javascript';
+
+MostlyGoodMetrics.configure({
+    apiKey: 'your-api-key',
+    baseURL: 'https://analytics.yourdomain.com',
+});
 ```
 
 ## Health check

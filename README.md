@@ -1,6 +1,6 @@
 # MGM Proxy
 
-A tiny, blazing-fast reverse proxy for [Mostly Good Metrics](https://mostlygoodmetrics.com) that makes sure we know where your users actually are.
+A tiny, blazing-fast reverse proxy for [Mostly Good Metrics](https://mostlygoodmetrics.com) that keeps your analytics working even when ad blockers are enabled.
 
 [![Deploy to Fly.io](https://img.shields.io/badge/Deploy%20to-Fly.io-8b5cf6?style=for-the-badge&logo=fly.io)](https://fly.io/docs/speedrun/)
 [![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/template?code=mgm-proxy&referralCode=mostlygoodmetrics)
@@ -8,50 +8,31 @@ A tiny, blazing-fast reverse proxy for [Mostly Good Metrics](https://mostlygoodm
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/mostlygoodmetrics/mgm-proxy)
 [![Deploy to DO](https://www.deploytodo.com/do-btn-blue.svg)](https://cloud.digitalocean.com/apps/new?repo=https://github.com/mostlygoodmetrics/mgm-proxy/tree/main)
 
-## Do I need this?
+## Why use a proxy?
 
-**Maybe not!** If you're sending events directly from a mobile app or web browser to MGM, you're all set. We automatically detect your users' locations from their IP addresses.
+**Ad blockers and privacy extensions block analytics.** They maintain blocklists of known analytics domains, so requests to `ingest.mostlygoodmetrics.com` might never make it through.
 
-**But if you're sending events through a server** (like a Next.js API route, a serverless function, or your own backend), then yes — you probably want this proxy.
-
-### The problem
-
-When events flow through your server, they arrive at MGM with *your server's* IP address, not your user's. So instead of seeing users from Tokyo, Berlin, and São Paulo, you see everyone coming from `us-east-1`. Not super useful.
+**The fix?** Host this proxy on your own domain. Requests to `analytics.yourdomain.com` look like first-party traffic, so they don't get blocked.
 
 ```
 Without proxy:
-User (Tokyo) → Your Server (Virginia) → MGM
-                                         ↳ "Oh cool, another user from Virginia"
+User → ingest.mostlygoodmetrics.com ← 🚫 Blocked by ad blocker
 
 With proxy:
-User (Tokyo) → Your Server (Virginia) → MGM Proxy → MGM
-                                         ↳ Extracts real IP
-                                         ↳ "User from Tokyo!"
+User → analytics.yourdomain.com → MGM
+       ↳ Looks like your own API
+       ↳ ✅ Not blocked!
 ```
-
-### When you need this
-
-- Sending events from **Next.js API routes** or **server components**
-- Using **serverless functions** (AWS Lambda, Vercel, Cloudflare Workers)
-- Proxying through your **own backend** for security
-- Running behind **Cloudflare** or another CDN that masks IPs
-
-### When you don't need this
-
-- Sending events **directly from iOS/Android apps** to MGM
-- Sending events **directly from web browsers** to MGM
-- Your server already forwards `X-Forwarded-For` headers (rare)
 
 ## How it works
 
-This proxy is dead simple. It:
+This proxy is dead simple:
 
-1. Receives your event request
-2. Extracts the real client IP from headers like `CF-Connecting-IP`, `X-Forwarded-For`, etc.
-3. Forwards the request to MGM with the real IP attached
-4. Returns the response
+1. Deploy it and point your own domain at it (e.g., `analytics.yourdomain.com`)
+2. Your app sends events to your domain instead of MGM directly
+3. The proxy forwards everything to MGM
 
-That's it. No config, no database, no state. Just ~60 lines of Go.
+No config, no database, no state. Just ~60 lines of Go.
 
 ## The stats
 
@@ -62,7 +43,7 @@ That's it. No config, no database, no state. Just ~60 lines of Go.
 
 ## Quick start
 
-Pick your favorite platform and click the button above, or keep reading for manual setup.
+Pick your favorite platform and click a deploy button above, or keep reading for manual setup.
 
 ## Configuration
 
@@ -88,18 +69,28 @@ fly deploy
 
 Want it in a specific region? `fly deploy --region nrt` for Tokyo, `fly deploy --region fra` for Frankfurt, etc.
 
+**Add a custom domain:**
+```bash
+fly certs add analytics.yourdomain.com
+# Then add a CNAME record pointing to your-app.fly.dev
+```
+
 ## Deploy to Heroku
 
 ```bash
 heroku create my-mgm-proxy
 heroku stack:set container
 git push heroku main
+
+# Add custom domain
+heroku domains:add analytics.yourdomain.com
 ```
 
 ## Deploy to Digital Ocean
 
 1. Click the "Deploy to DO" button above
-2. That's it. Seriously.
+2. Add your custom domain in the app settings
+3. Done!
 
 ## Deploy to Railway
 
@@ -108,12 +99,15 @@ npm install -g @railway/cli
 railway login
 railway init
 railway up
+
+# Add custom domain in Railway dashboard
 ```
 
 ## Deploy to Render
 
 1. Click the "Deploy to Render" button above
-2. Done!
+2. Add your custom domain in the service settings
+3. Done!
 
 ## Run with Docker
 
@@ -137,35 +131,21 @@ go run main.go
 
 ## Using the proxy
 
-Once deployed, point your SDK to your proxy URL instead of the default MGM endpoint:
+Once deployed with your custom domain, point your SDK to it:
 
 **iOS**
 ```swift
-MGM.configure(apiKey: "your-key", endpoint: "https://your-proxy.fly.dev")
+MGM.configure(apiKey: "your-key", endpoint: "https://analytics.yourdomain.com")
 ```
 
 **Android**
 ```kotlin
-MostlyGoodMetrics.configure(context, "your-key", "https://your-proxy.fly.dev")
+MostlyGoodMetrics.configure(context, "your-key", "https://analytics.yourdomain.com")
 ```
 
 **Web**
 ```javascript
-mgm.init({ apiKey: 'your-key', endpoint: 'https://your-proxy.fly.dev' });
-```
-
-**Server-side (Node.js example)**
-```javascript
-// When proxying from your server, make sure to forward the client IP!
-await fetch('https://your-proxy.fly.dev/v1/events', {
-  method: 'POST',
-  headers: {
-    'Authorization': `Bearer ${apiKey}`,
-    'Content-Type': 'application/json',
-    'X-Forwarded-For': request.headers['x-forwarded-for'] || request.ip,
-  },
-  body: JSON.stringify({ events: [...] }),
-});
+mgm.init({ apiKey: 'your-key', endpoint: 'https://analytics.yourdomain.com' });
 ```
 
 ## Health check
@@ -173,7 +153,7 @@ await fetch('https://your-proxy.fly.dev/v1/events', {
 The proxy exposes a `/health` endpoint that returns `ok` with a 200 status. Use this for load balancer health checks.
 
 ```bash
-curl https://your-proxy.fly.dev/health
+curl https://analytics.yourdomain.com/health
 # ok
 ```
 

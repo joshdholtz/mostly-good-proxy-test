@@ -1,6 +1,6 @@
 # MGM Proxy
 
-A lightweight reverse proxy for [Mostly Good Metrics](https://mostlygoodmetrics.com) that preserves client IP addresses for accurate geolocation.
+A tiny, blazing-fast reverse proxy for [Mostly Good Metrics](https://mostlygoodmetrics.com) that makes sure we know where your users actually are.
 
 [![Deploy to Fly.io](https://img.shields.io/badge/Deploy%20to-Fly.io-8b5cf6?style=for-the-badge&logo=fly.io)](https://fly.io/docs/speedrun/)
 [![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/template?code=mgm-proxy&referralCode=mostlygoodmetrics)
@@ -8,17 +8,61 @@ A lightweight reverse proxy for [Mostly Good Metrics](https://mostlygoodmetrics.
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/mostlygoodmetrics/mgm-proxy)
 [![Deploy to DO](https://www.deploytodo.com/do-btn-blue.svg)](https://cloud.digitalocean.com/apps/new?repo=https://github.com/mostlygoodmetrics/mgm-proxy/tree/main)
 
-## Why use a proxy?
+## Do I need this?
 
-When your app sends analytics events through a CDN, load balancer, or serverless function, the original client IP gets replaced with the proxy's IP. This proxy extracts the real client IP from standard headers and forwards it to MGM.
+**Maybe not!** If you're sending events directly from a mobile app or web browser to MGM, you're all set. We automatically detect your users' locations from their IP addresses.
 
-## Features
+**But if you're sending events through a server** (like a Next.js API route, a serverless function, or your own backend), then yes — you probably want this proxy.
 
-- Zero dependencies (Go standard library only)
-- ~5MB Docker image
-- ~10MB memory usage
-- Extracts client IP from: `CF-Connecting-IP`, `True-Client-IP`, `X-Real-IP`, `X-Forwarded-For`
-- Health check endpoint at `/health`
+### The problem
+
+When events flow through your server, they arrive at MGM with *your server's* IP address, not your user's. So instead of seeing users from Tokyo, Berlin, and São Paulo, you see everyone coming from `us-east-1`. Not super useful.
+
+```
+Without proxy:
+User (Tokyo) → Your Server (Virginia) → MGM
+                                         ↳ "Oh cool, another user from Virginia"
+
+With proxy:
+User (Tokyo) → Your Server (Virginia) → MGM Proxy → MGM
+                                         ↳ Extracts real IP
+                                         ↳ "User from Tokyo!"
+```
+
+### When you need this
+
+- Sending events from **Next.js API routes** or **server components**
+- Using **serverless functions** (AWS Lambda, Vercel, Cloudflare Workers)
+- Proxying through your **own backend** for security
+- Running behind **Cloudflare** or another CDN that masks IPs
+
+### When you don't need this
+
+- Sending events **directly from iOS/Android apps** to MGM
+- Sending events **directly from web browsers** to MGM
+- Your server already forwards `X-Forwarded-For` headers (rare)
+
+## How it works
+
+This proxy is dead simple. It:
+
+1. Receives your event request
+2. Extracts the real client IP from headers like `CF-Connecting-IP`, `X-Forwarded-For`, etc.
+3. Forwards the request to MGM with the real IP attached
+4. Returns the response
+
+That's it. No config, no database, no state. Just ~60 lines of Go.
+
+## The stats
+
+- **~5MB** Docker image
+- **~10MB** memory usage
+- **Zero** dependencies (Go standard library only)
+- **<1ms** added latency
+
+## Quick start
+
+Pick your favorite platform and click the button above, or keep reading for manual setup.
 
 ## Configuration
 
@@ -29,49 +73,38 @@ When your app sends analytics events through a CDN, load balancer, or serverless
 
 ## Deploy to Fly.io
 
+Fly.io is great for this — deploy close to your users with edge regions.
+
 ```bash
 # Install flyctl if needed
 curl -L https://fly.io/install.sh | sh
 
-# Launch (first time)
+# Clone and deploy
+git clone https://github.com/mostlygoodmetrics/mgm-proxy.git
 cd mgm-proxy
 fly launch --no-deploy
 fly deploy
-
-# Or deploy to a specific region
-fly deploy --region iad
 ```
+
+Want it in a specific region? `fly deploy --region nrt` for Tokyo, `fly deploy --region fra` for Frankfurt, etc.
 
 ## Deploy to Heroku
 
 ```bash
-# Using Docker (recommended)
 heroku create my-mgm-proxy
 heroku stack:set container
 git push heroku main
-
-# Or using Go buildpack
-heroku create my-mgm-proxy
-heroku buildpacks:set heroku/go
-git push heroku main
 ```
 
-## Deploy to Digital Ocean App Platform
+## Deploy to Digital Ocean
 
-1. Fork this repo or push to your own GitHub
-2. Go to [Digital Ocean App Platform](https://cloud.digitalocean.com/apps)
-3. Create App → Select your repo
-4. It will auto-detect the Dockerfile
-5. Set environment variable `MGM_TARGET_URL` if needed
-6. Deploy
+1. Click the "Deploy to DO" button above
+2. That's it. Seriously.
 
 ## Deploy to Railway
 
 ```bash
-# Install Railway CLI
 npm install -g @railway/cli
-
-# Deploy
 railway login
 railway init
 railway up
@@ -79,44 +112,71 @@ railway up
 
 ## Deploy to Render
 
-1. Go to [Render Dashboard](https://dashboard.render.com)
-2. New → Web Service
-3. Connect your repo
-4. Render will auto-detect the Dockerfile
-5. Deploy
+1. Click the "Deploy to Render" button above
+2. Done!
 
 ## Run with Docker
 
 ```bash
+docker run -p 8080:8080 ghcr.io/mostlygoodmetrics/mgm-proxy:latest
+```
+
+Or build it yourself:
+
+```bash
 docker build -t mgm-proxy .
-docker run -p 8080:8080 -e MGM_TARGET_URL=https://ingest.mostlygoodmetrics.com mgm-proxy
+docker run -p 8080:8080 mgm-proxy
 ```
 
 ## Run locally
 
 ```bash
 go run main.go
+# Listening on :8080
 ```
 
-## Usage
+## Using the proxy
 
-Point your SDK to your proxy URL instead of the MGM ingestion endpoint:
+Once deployed, point your SDK to your proxy URL instead of the default MGM endpoint:
 
+**iOS**
 ```swift
-// iOS
 MGM.configure(apiKey: "your-key", endpoint: "https://your-proxy.fly.dev")
 ```
 
+**Android**
 ```kotlin
-// Android
 MostlyGoodMetrics.configure(context, "your-key", "https://your-proxy.fly.dev")
 ```
 
+**Web**
 ```javascript
-// Web
 mgm.init({ apiKey: 'your-key', endpoint: 'https://your-proxy.fly.dev' });
+```
+
+**Server-side (Node.js example)**
+```javascript
+// When proxying from your server, make sure to forward the client IP!
+await fetch('https://your-proxy.fly.dev/v1/events', {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${apiKey}`,
+    'Content-Type': 'application/json',
+    'X-Forwarded-For': request.headers['x-forwarded-for'] || request.ip,
+  },
+  body: JSON.stringify({ events: [...] }),
+});
+```
+
+## Health check
+
+The proxy exposes a `/health` endpoint that returns `ok` with a 200 status. Use this for load balancer health checks.
+
+```bash
+curl https://your-proxy.fly.dev/health
+# ok
 ```
 
 ## License
 
-MIT
+MIT — do whatever you want with it.

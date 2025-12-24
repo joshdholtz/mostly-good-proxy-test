@@ -13,7 +13,7 @@ import (
 func main() {
 	targetURL := os.Getenv("MGM_TARGET_URL")
 	if targetURL == "" {
-		targetURL = "https://ingestion.mostlygoodmetrics.com"
+		targetURL = "https://ingest.mostlygoodmetrics.com"
 	}
 
 	target, err := url.Parse(targetURL)

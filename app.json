@@ -7,7 +7,7 @@
   "env": {
     "MGM_TARGET_URL": {
       "description": "The MGM ingestion endpoint to proxy to",
-      "value": "https://ingestion.mostlygoodmetrics.com"
+      "value": "https://ingest.mostlygoodmetrics.com"
     }
   }
 }

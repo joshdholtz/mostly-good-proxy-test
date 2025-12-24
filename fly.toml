@@ -7,7 +7,7 @@ primary_region = "iad"
 [build]
 
 [env]
-  MGM_TARGET_URL = "https://ingestion.mostlygoodmetrics.com"
+  MGM_TARGET_URL = "https://ingest.mostlygoodmetrics.com"
 
 [http_service]
   internal_port = 8080

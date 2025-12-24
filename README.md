@@ -24,7 +24,7 @@ When your app sends analytics events through a CDN, load balancer, or serverless
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `MGM_TARGET_URL` | `https://ingestion.mostlygoodmetrics.com` | MGM ingestion endpoint |
+| `MGM_TARGET_URL` | `https://ingest.mostlygoodmetrics.com` | MGM ingestion endpoint |
 | `PORT` | `8080` | Port to listen on |
 
 ## Deploy to Fly.io
@@ -89,7 +89,7 @@ railway up
 
 ```bash
 docker build -t mgm-proxy .
-docker run -p 8080:8080 -e MGM_TARGET_URL=https://ingestion.mostlygoodmetrics.com mgm-proxy
+docker run -p 8080:8080 -e MGM_TARGET_URL=https://ingest.mostlygoodmetrics.com mgm-proxy
 ```
 
 ## Run locally

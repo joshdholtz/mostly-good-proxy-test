@@ -5,4 +5,4 @@ services:
     plan: free
     envVars:
       - key: MGM_TARGET_URL
-        value: https://ingestion.mostlygoodmetrics.com
+        value: https://ingest.mostlygoodmetrics.com
